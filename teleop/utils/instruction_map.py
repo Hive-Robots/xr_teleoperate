@@ -65,7 +65,7 @@ class ControlDataMapper:
             mobile_yaw_vel = self.mobile_yaw_vel
         # Update waist yaw position based on joystick input and current position
         if rx is not None and current_waist_yaw is not None:
-            waist_yaw_pos = self._update_waist_position(rx, current_waist_yaw)
+            waist_yaw_pos = self._update_waist_position(rx, current_waist_yaw,max_velocity=0.05,min_position=-2.5,max_position=2.5)
         elif current_waist_yaw is not None:
             # Joystick released, maintain current position
             waist_yaw_pos = current_waist_yaw
@@ -74,7 +74,7 @@ class ControlDataMapper:
         
         # Update waist pitch position based on joystick input and current position
         if ry is not None and current_waist_pitch is not None:
-            waist_pitch_pos = self._update_waist_position(ry, current_waist_pitch)
+            waist_pitch_pos = self._update_waist_position(ry, current_waist_pitch,max_velocity=0.01,min_position=-0.17,max_position=0.5)
         elif current_waist_pitch is not None:
             # Joystick released, maintain current position
             waist_pitch_pos = current_waist_pitch
@@ -93,7 +93,7 @@ class ControlDataMapper:
             'g1_height': self._height_value
         }
         
-    def _update_waist_position(self, raw_value, current_position):
+    def _update_waist_position(self, raw_value, current_position, max_velocity,min_position,max_position):
         """
         Update waist position based on joystick input and current position
         Position increases/decreases based on joystick direction
@@ -106,9 +106,9 @@ class ControlDataMapper:
             float: Updated waist position
         """
         deadzone = 0.05
-        max_velocity = 0.02  # Maximum position change per update (adjust for smooth control)
-        min_position = -2.5
-        max_position = 2.5
+        max_velocity = max_velocity  # Maximum position change per update (adjust for smooth control)
+        min_position = min_position
+        max_position = max_position
         
         if abs(raw_value) < deadzone:
             # Joystick in deadzone, maintain current position

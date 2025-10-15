@@ -257,7 +257,7 @@ class G1_29_ArmController:
         # Check if waist needs to move
         if not np.all(np.abs(waist_current) < tolerance):
             # Calculate steps to gradually move waist to zero
-            num_steps = 100  # Number of steps for smooth transition
+            num_steps = 50  # Number of steps for smooth transition
             waist_start = waist_current.copy()
             
             for step in range(num_steps):
@@ -284,11 +284,10 @@ class G1_29_ArmController:
             logger_mp.info("[G1_29_ArmController] Waist already at home position.")
         # Step 2: Move all joints (arms + waist) to home position
         logger_mp.info("[G1_29_ArmController] Step 2: Moving arms to home position...")
-        max_attempts = 150
+        max_attempts = 100
         current_attempts = 0
         with self.ctrl_lock:
             self.q_target = np.zeros(16)
-            # self.tauff_target = np.zeros(14)
         while current_attempts < max_attempts:
             current_q = self.get_current_arm_waist_q()
             if np.all(np.abs(current_q) < tolerance):
@@ -328,6 +327,10 @@ class G1_29_ArmController:
             G1_29_JointIndex.kRightShoulderRoll.value,
             G1_29_JointIndex.kRightShoulderYaw.value,
             G1_29_JointIndex.kRightElbow.value,
+
+            # Waist
+            G1_29_JointIndex.kWaistYaw.value,
+            G1_29_JointIndex.kWaistPitch.value,
         ]
         return motor_index.value in weak_motors
     
