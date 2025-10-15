@@ -360,14 +360,20 @@ if __name__ == '__main__':
                         waist_action = np.array([vel_data['waist_yaw_pos']]).tolist()
                         sol_q = np.concatenate([sol_q, waist_action])
                 else:
-                    vel_data = control_data_mapper.update(-tele_data.tele_state.left_thumbstick_value[1], -tele_data.tele_state.left_thumbstick_value[0], -tele_data.tele_state.right_thumbstick_value[0], -tele_data.tele_state.right_thumbstick_value[1],
-                    tele_data.tele_state.right_aButton, tele_data.tele_state.right_bButton, current_waist_yaw=waist_state[0], current_waist_pitch=waist_state[1])
+                    lx = -tele_data.tele_state.left_thumbstick_value[1]
+                    ly = -tele_data.tele_state.left_thumbstick_value[0]
+                    rbutton_A = tele_data.tele_state.right_aButton
+                    rbutton_B = tele_data.tele_state.right_bButton
+                    vel_data = control_data_mapper.update(lx=lx, ly=ly,rbutton_A=rbutton_A, rbutton_B=rbutton_B)
                     mobile_ctrl.g1_height_action_array_in[0] = vel_data['g1_height']  
                     if args.base_type == "mobile_lift":
                         mobile_ctrl.g1_move_action_array_in[0] = vel_data['mobile_x_vel']  
                         mobile_ctrl.g1_move_action_array_in[1] = vel_data['mobile_yaw_vel'] 
                     if args.use_waist:
                         waist_state = arm_ctrl.get_current_waist_q()
+                        rx = -tele_data.tele_state.right_thumbstick_value[1]
+                        ry = -tele_data.tele_state.right_thumbstick_value[0]
+                        vel_data = control_data_mapper.update( rx=rx, ry=ry, current_waist_yaw=waist_state[0], current_waist_pitch=waist_state[1])
                         waist_action = np.array([vel_data['waist_yaw_pos']]).tolist()
                         sol_q = np.concatenate([sol_q, waist_action])
             arm_ctrl.ctrl_dual_arm(sol_q, sol_tauff)
