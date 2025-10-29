@@ -168,9 +168,9 @@ class ControlDataMapper:
             rbutton_A: Right button A raw value (0 or 1)
             rbutton_B: Right button B raw value (0 or 1)
         """
-        if rbutton_A:
+        if rbutton_B:
             self._height_value = 0.5
-        elif rbutton_B:
+        elif rbutton_A:
             self._height_value = -0.5
         else:
             self._height_value = 0.0
