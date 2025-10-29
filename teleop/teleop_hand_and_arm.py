@@ -75,9 +75,8 @@ def get_state() -> dict:
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
-    parser.add_argument('--frequency', type = float, default = 30.0, help = 'save and control \'s frequency')
-
     # basic control parameters
+    parser.add_argument('--frequency', type = float, default = 30.0, help = 'control and record \'s frequency')
     parser.add_argument('--xr-mode', type=str, choices=['hand', 'controller'], default='hand', help='Select XR device tracking source')
     parser.add_argument('--arm', type=str, choices=['G1_29', 'G1_23', 'H1_2', 'H1'], default='G1_29', help='Select arm controller')
     parser.add_argument('--ee', type=str, choices=['dex1', 'dex3', 'inspire1', 'brainco'], help='Select end effector controller')
@@ -85,10 +84,10 @@ if __name__ == '__main__':
     parser.add_argument('--motion', action = 'store_true', help = 'Enable motion control mode')
     parser.add_argument('--headless', action='store_true', help='Enable headless mode (no display)')
     parser.add_argument('--sim', action = 'store_true', help = 'Enable isaac simulation mode')
-    parser.add_argument('--affinity', action = 'store_true', help = 'Enable high priority and set CPU affinity mode')
     parser.add_argument('--ipc', action = 'store_true', help = 'Enable IPC server to handle input; otherwise enable sshkeyboard')
     parser.add_argument('--pass-through', action='store_true', help='Enable passthrough mode (use real-world view in XR device)')
-    parser.add_argument('--img-server-ip', type=str, default='127.0.0.1', help='IP address of image server')
+    parser.add_argument('--img-server-ip', type=str, default='192.168.123.164', help='IP address of image server')
+    parser.add_argument('--affinity', action = 'store_true', help = 'Enable high priority and set CPU affinity mode')
     # record mode and task info
     parser.add_argument('--record', action = 'store_true', help = 'Enable data recording mode')
     parser.add_argument('--task-dir', type = str, default = './utils/data/', help = 'path to save data')
@@ -206,8 +205,8 @@ if __name__ == '__main__':
                 loco_wrapper = LocoClientWrapper()
         else:
             motion_switcher = MotionSwitcher()
-            status, result = motion_switcher.Enter_Debug_Mode()
-            logger_mp.info(f"Enter debug mode: {status}, {result}")
+            # status, result = motion_switcher.Enter_Debug_Mode()
+            # logger_mp.info(f"Enter debug mode: {status}, {result}")
         
         # record + headless / non-headless mode
         if args.record:
