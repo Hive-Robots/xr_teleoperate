@@ -370,14 +370,15 @@ if __name__ == '__main__':
                     waist_state = arm_ctrl.get_current_waist_q()
                     handle_instruction_data = handle_instruction.get_instruction()
                     vel_data = control_data_mapper.update( rx=handle_instruction_data['rx'], ry=handle_instruction_data['ry'], current_waist_yaw=waist_state[0], current_waist_pitch=waist_state[1])
-                    waist_action = np.array([vel_data['waist_yaw_pos']]).tolist()
-                    sol_q = np.concatenate([sol_q, waist_action])
+                    waist_action = np.array([vel_data['waist_yaw_pos'],vel_data['waist_pitch_pos']]).tolist()
+                    waist_action_yaw = np.array([vel_data['waist_yaw_pos']]).tolist()
+                    sol_q = np.concatenate([sol_q, waist_action_yaw])
             arm_ctrl.ctrl_dual_arm(sol_q, sol_tauff)
 
 
             # record data
             if args.record:
-                RECORD_READY = recorder.is_ready()
+                RECORD_READY = recorder.is_ready()cd 
                 # dex hand or gripper
                 if args.ee == "dex3" and args.xr_mode == "hand":
                     with dual_hand_data_lock:
