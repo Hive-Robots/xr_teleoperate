@@ -79,6 +79,9 @@ def get_state() -> dict:
         "RECORD_RUNNING": RECORD_RUNNING,
     }
 
+
+
+
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     # basic control parameters
@@ -88,7 +91,7 @@ if __name__ == '__main__':
     parser.add_argument('--ee', type=str, choices=['dex1', 'dex3', 'inspire_ftp', 'inspire_dfx', 'brainco'], help='Select end effector controller')
     
     # mobile base, elevation and waist control
-    parser.add_argument('--base-type', type=str, choices=['mobile_lift', 'lift','legs'], default='legs', help='Select lower body type')
+    parser.add_argument('--base-type', type=str, choices=['mobile_lift', 'lift','legs'], default='mobile_lift', help='Select lower body type')
     parser.add_argument('--use-waist', action = 'store_false', help = 'Enable waist control')
 
     # mode flags
@@ -135,7 +138,7 @@ if __name__ == '__main__':
                                      img_shape=camera_config['head_camera']['image_shape'],
                                      webrtc=camera_config['head_camera']['enable_webrtc'],
                                      webrtc_url=f"https://{args.img_server_ip}:{camera_config['head_camera']['webrtc_port']}/offer")
-        
+
         # motion mode (G1: Regular mode R1+X, not Running mode R2+A)
         if args.motion:
             if args.xr_mode == "controller":
@@ -144,11 +147,12 @@ if __name__ == '__main__':
             motion_switcher = MotionSwitcher()
             status, result = motion_switcher.Enter_Debug_Mode()
             logger_mp.info(f"Enter debug mode: {'Success' if status == 0 else 'Failed'}")
-
+        
         # arm
         if args.arm == "G1_29":
             arm_ik = G1_29_ArmIK()
             arm_ctrl = G1_29_ArmController(motion_mode=args.motion, simulation_mode=args.sim,use_waist=args.use_waist)
+            arm_ctrl.ctrl_dual_arm_go_home()
         elif args.arm == "G1_23":
             arm_ik = G1_23_ArmIK()
             arm_ctrl = G1_23_ArmController(motion_mode=args.motion, simulation_mode=args.sim)
@@ -203,12 +207,12 @@ if __name__ == '__main__':
 
         # For mobile base and elevation control
         if args.base_type != "legs":
-            control_data_mapper = ControlDataMapper()
             # args.xr_mode == "hand" use unitree R3-controller, otherwise use XR controller
             mobile_ctrl = G1_Mobile_Lift_Controller(args.base_type, args.xr_mode == "hand", simulation_mode=args.sim)
-            handle_instruction = HandleInstruction(args.xr_mode == "hand", tv_wrapper, mobile_ctrl)
         else:
             mobile_ctrl=None
+        control_data_mapper = ControlDataMapper(arm_ctrl)
+        handle_instruction = HandleInstruction(args.xr_mode == "hand", tv_wrapper, mobile_ctrl)
         # affinity mode (if you dont know what it is, then you probably don't need it)
         if args.affinity:
             import psutil
@@ -254,7 +258,8 @@ if __name__ == '__main__':
 
         logger_mp.info("---------------------🚀start program🚀-------------------------")
         arm_ctrl.speed_gradual_max()
-        # main loop. robot start to follow VR user's motion
+
+
         while not STOP:
             start_time = time.time()
             # get image
@@ -283,9 +288,11 @@ if __name__ == '__main__':
                     recorder.save_episode()
                     if args.sim:
                         publish_reset_category(1, reset_pose_publisher)
-
+            
             # get xr's tele data
             tele_data = tv_wrapper.get_tele_data()
+
+            # logger_mp.info(f"tele_data: {tele_data}")
             if (args.ee == "dex3" or args.ee == "inspire1" or args.ee == "brainco") and args.xr_mode == "hand":
                 with left_hand_pos_array.get_lock():
                     left_hand_pos_array[:] = tele_data.left_hand_pos.flatten()
@@ -337,7 +344,8 @@ if __name__ == '__main__':
             if  mobile_ctrl is not None:
                 height_state = mobile_ctrl.g1_height_state_array_out
                 handle_instruction_data = handle_instruction.get_instruction()
-                vel_data = control_data_mapper.update(rbutton_A=handle_instruction_data['rbutton_A'], rbutton_B=handle_instruction_data['rbutton_B'])
+                
+                vel_data = control_data_mapper.update(ry=handle_instruction_data['ry'])
                 height_action = np.array([vel_data['g1_height']]).tolist()
                 mobile_ctrl.g1_height_action_array_in[0] = height_action[0]  
                 if args.base_type == "mobile_lift":
@@ -347,16 +355,34 @@ if __name__ == '__main__':
                     move_action = np.array([vel_data['mobile_x_vel'], vel_data['mobile_yaw_vel']]).tolist()
                     mobile_ctrl.g1_move_action_array_in[0] = move_action[0]  
                     mobile_ctrl.g1_move_action_array_in[1] = move_action[1] 
-                if args.use_waist:
-                    waist_state = arm_ctrl.get_current_waist_q()
-                    handle_instruction_data = handle_instruction.get_instruction()
-                    vel_data = control_data_mapper.update( rx=handle_instruction_data['rx'], ry=handle_instruction_data['ry'], current_waist_yaw=waist_state[0], current_waist_pitch=waist_state[1])
-                    waist_action = np.array([vel_data['waist_yaw_pos'],vel_data['waist_pitch_pos']]).tolist()
-                    waist_action_yaw = np.array([vel_data['waist_yaw_pos']]).tolist()
-                    sol_q = np.concatenate([sol_q, waist_action_yaw])
-            arm_ctrl.ctrl_dual_arm(sol_q, sol_tauff)
 
+            if args.use_waist:
+                handle_instruction_data = handle_instruction.get_instruction()
+                waist_state = arm_ctrl.get_current_waist_q()
+                # print(f"waist_state:{waist_state[1]}")
+                gravity_feedforward_data = arm_ctrl.get_gravity_feedforward_data(waist_state[1])
+                print(f"gravity_feedforward_data:{gravity_feedforward_data}")
 
+                vel_data = control_data_mapper.update(
+                    rx=handle_instruction_data['rx'],
+                    rbutton_A=handle_instruction_data['rbutton_A'],
+                    rbutton_B=handle_instruction_data['rbutton_B'],
+                    current_waist_yaw=waist_state[0], 
+                    current_waist_pitch=waist_state[1]
+                )
+                waist_action = np.array([vel_data['waist_yaw_pos'], vel_data['waist_pitch_pos']])
+                # logger_mp.info(f"waist_state:{waist_state}")
+                # logger_mp.info(f"waist_action:{waist_action}")
+                
+                sol_q = np.concatenate([sol_q, waist_action])
+            else:
+                gravity_feedforward_data=0
+            try:   
+                arm_ctrl.ctrl_dual_arm(sol_q, sol_tauff, gravity_feedforward_data)
+            except Exception as e:
+                logger_mp.error(f"Error 2: {e}")
+                raise e
+            # print(f"--------------------------------")
             # record data
             if args.record:
                 READY = recorder.is_ready() # now ready to (2) enter RECORD_RUNNING state
@@ -509,13 +535,13 @@ if __name__ == '__main__':
                             actions["chassis"] = {
                                 "qvel": np.array(move_action).tolist()   # [x_vel, yaw_vel]
                             }
-                        if args.use_waist:
-                            states["waist"] = {
-                                "qpos": np.array(waist_state).tolist(),#[yaw,pitch]
-                            }
-                            actions["waist"] = {
-                                "qpos": np.array(waist_action).tolist(),  #[yaw]
-                            }
+                    if args.use_waist and waist_state is not None and waist_action is not None:
+                        states["waist"] = {
+                            "qpos": np.array(waist_state).tolist(),  # [yaw, pitch]
+                        }
+                        actions["waist"] = {
+                            "qpos": np.array(waist_action).tolist(),  # [yaw, pitch]
+                        }
 
                     if args.sim:
                         sim_state = sim_state_subscriber.read_data()            
@@ -531,6 +557,8 @@ if __name__ == '__main__':
 
     except KeyboardInterrupt:
         logger_mp.info("KeyboardInterrupt, exiting program...")
+    except Exception as e:
+        logger_mp.error(f"Error: {e}")
     finally:
         try:
             arm_ctrl.ctrl_dual_arm_go_home()

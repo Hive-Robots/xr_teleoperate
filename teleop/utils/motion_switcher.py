@@ -22,6 +22,7 @@ class MotionSwitcher:
                 time.sleep(1)
             return status, result
         except Exception as e:
+            print(f"error:{e}")
             return None, None
     
     def Exit_Debug_Mode(self):

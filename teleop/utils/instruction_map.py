@@ -1,5 +1,99 @@
 import numpy as np
+import time
+from numpy.random import f
+import pinocchio as pin
+import logging_mp
+logging_mp.basic_config(level=logging_mp.INFO)
+logger_mp = logging_mp.get_logger(__name__)
+# class GravityFeedforward:
+#     """
+#     用于计算关节重力补偿前馈力矩的类。
+#     初始化时加载 URDF 和模型，调用 compute() 计算 tau_ff。
+#     """
 
+#     def __init__(self, urdf_path, joint_names=None, root_joint=None):
+#         """
+#         参数:
+#         --------
+#         urdf_path : str
+#             URDF 文件路径
+
+#         joint_names : list[str], optional
+#             如果只需要部分关节（例如上身某几个电机），
+#             可以传 joint_names 来提取对应的 index。
+
+#         root_joint : pinocchio.JointModel, optional
+#             如果机器人不是 floating base，保持默认即可。
+#         """
+
+#         # 1. 加载 URDF 模型
+#         if root_joint is None:
+#             self.model = pin.buildModelFromUrdf(urdf_path)
+#         else:
+#             self.model = pin.buildModelFromUrdf(urdf_path, root_joint)
+
+#         self.data = self.model.createData()
+
+#         # 2. 获取关节索引
+#         if joint_names is None:
+#             # 默认使用模型的所有关节
+#             self.joint_id_list = [
+#                 jid for jid in range(1, self.model.njoints)
+#                 if self.model.joints[jid].nq > 0
+#             ]
+#         else:
+#             # 只使用指定关节
+#             self.joint_id_list = []
+#             for name in joint_names:
+#                 jid = self.model.getJointId(name)
+#                 if jid == 0:
+#                     raise ValueError(f"Joint name {name} not found in URDF.")
+#                 self.joint_id_list.append(jid)
+
+#         # 生成 joint 顺序到 model.q 的索引（非常重要）
+#         self.idxs = []
+#         for jid in self.joint_id_list:
+#             idx_q = self.model.joints[jid].idx_q
+#             self.idxs.append(idx_q)
+
+#         self.idxs = np.array(self.idxs)
+#         self.n = len(self.idxs)
+#     # ------------------------------------------------------------------
+
+#     def compute(self, q):
+#         """
+#         计算重力补偿前馈扭矩 tau_ff。
+
+#         参数:
+#         --------
+#         q : ndarray [n,]
+#             当前关节角度（对应 joint_names 或模型所有 actuated joints）
+
+#         返回:
+#         --------
+#         tau_ff : ndarray [n,]
+#             重力补偿扭矩
+#         """
+
+#         # 1. 构造完整的 model.q（包含所有关节）
+#         full_q = np.zeros(self.model.nq)
+#         full_q[self.idxs] = q
+
+#         # 2. RNEA 计算 G(q)
+#         G_full = pin.rnea(
+#             self.model,
+#             self.data,
+#             full_q,
+#             np.zeros(self.model.nv),
+#             np.zeros(self.model.nv)
+#         )
+
+#         G_full = np.array(G_full).reshape(-1)
+
+#         # 3. 只输出你关心关节的前馈力矩
+#         tau_ff = G_full[self.idxs]
+
+#         return tau_ff
 
 class HandleInstruction:
     def __init__(self,r3_controller,tv_wrapper,mobile_ctrl):
@@ -43,7 +137,7 @@ class ControlDataMapper:
     """
     Control data mapper for mobile base and elevation
     """
-    def __init__(self):
+    def __init__(self, arm_ctrl=None):
         # Velocity filters
         self._filters = {
             'mobile_x_vel': LowPassFilter(alpha=0.15),
@@ -51,12 +145,17 @@ class ControlDataMapper:
         }
         
         # Height accumulated value (remains unchanged after release)
-        self._height_value = 0.0
+        self.height_speed_value = 0
         self.mobile_x_vel = 0
         self.mobile_yaw_vel = 0
-        self.height = 0
+        self.arm_ctrl = arm_ctrl
+        # 定义腰部变量
+        self.PITCH_MAX = 2.36
+        self.PITCH_MIN = -0.035   #-2度
+        self.last_timestamp = time.perf_counter()  # 使用高性能计时器
+        self.waist_pitch_pos = self.arm_ctrl.get_current_waist_q()[1]  # 初始位置
     def update(self, lx=None, ly=None, rx=None, ry=None, rbutton_A=None, rbutton_B=None, 
-               current_waist_yaw=None, current_waist_pitch=None):
+               current_waist_yaw=None,current_waist_pitch=None):
         """
         Update and map control parameters
         
@@ -85,36 +184,31 @@ class ControlDataMapper:
             self.mobile_yaw_vel = mobile_yaw_vel
         else:
             mobile_yaw_vel = self.mobile_yaw_vel
-        # Update waist yaw position based on joystick input and current position
+        # # Update waist yaw position based on joystick input and current position
         if rx is not None and current_waist_yaw is not None:
             waist_yaw_pos = self._update_waist_position(rx, current_waist_yaw,max_velocity=0.05,min_position=-2.5,max_position=2.5)
         elif current_waist_yaw is not None:
-            # Joystick released, maintain current position
             waist_yaw_pos = current_waist_yaw
         else:
             waist_yaw_pos = 0.0
-        
-        # Update waist pitch position based on joystick input and current position
-        if ry is not None and current_waist_pitch is not None:
-            waist_pitch_pos = self._update_waist_position(ry, current_waist_pitch,max_velocity=0.01,min_position=-0.17,max_position=0.5)
-        elif current_waist_pitch is not None:
-            # Joystick released, maintain current position
-            waist_pitch_pos = current_waist_pitch
+
+        if ry is not None:
+            self._update_height(ry)
         else:
-            waist_pitch_pos = 0.0
-        if rbutton_A is not None and rbutton_B is not None:
-            self._update_height_button(rbutton_A,rbutton_B) 
+            self.height_speed_value = 0
+        if rbutton_A or rbutton_B:
+            waist_pitch_pos = self._update_waist_picth_button(rbutton_A,rbutton_B,max_velocity=12.0,min_position=-0.02,max_position=2.3)
         else:
-            self._height_value = self.height
-        # Update height (remains at current value after release)
+            waist_pitch_pos = self.waist_pitch_pos
         return {
             'mobile_x_vel': mobile_x_vel,
             'mobile_yaw_vel': mobile_yaw_vel,
             'waist_yaw_pos': waist_yaw_pos,
             'waist_pitch_pos': waist_pitch_pos,
-            'g1_height': self._height_value
+            'g1_height': self.height_speed_value,
         }
-        
+
+
     def _update_waist_position(self, raw_value, current_position, max_velocity,min_position,max_position):
         """
         Update waist position based on joystick input and current position
@@ -127,7 +221,7 @@ class ControlDataMapper:
         Returns:
             float: Updated waist position
         """
-        deadzone = 0.05
+        deadzone = 0.5
         max_velocity = max_velocity  # Maximum position change per update (adjust for smooth control)
         min_position = min_position
         max_position = max_position
@@ -151,7 +245,53 @@ class ControlDataMapper:
             new_position = np.clip(new_position, min_position, max_position)
             
             return new_position
-    
+    def _update_waist_picth_button(self,rbutton_A,rbutton_B,max_velocity=8.0,min_position=-0.02,max_position=2.3):
+        # 时间差值
+        current_timestamp = time.perf_counter()
+        delta_t = current_timestamp - self.last_timestamp
+        self.last_timestamp = current_timestamp
+        if delta_t <= 0 or delta_t > 0.1:  # 限制最大时间差为100ms，避免异常跳跃
+            return self.waist_pitch_pos
+
+        # 初始化delta_q
+        delta_q = 0.0
+        # 处理按钮A（正方向）
+        if rbutton_A and self.waist_pitch_pos < max_position:
+            delta_q = delta_t * ((max_position - min_position) / max_velocity)
+
+        # 处理按钮B（负方向）
+        elif rbutton_B and self.waist_pitch_pos > min_position:  # 使用elif避免同时按下
+            delta_q = -delta_t * ((max_position - min_position) / max_velocity)
+        # 更新pitch位置
+        if delta_q != 0:
+            self.waist_pitch_pos += delta_q
+            # 限制位置在合法范围内
+            self.waist_pitch_pos = min(max_position, max(min_position, self.waist_pitch_pos))
+        return self.waist_pitch_pos
+    def _update_waist_pitch(self,raw_value,min_position,max_position,max_velocity=1000.0):
+        # 时间差值
+        current_timestamp = time.perf_counter()
+        delta_t = current_timestamp - self.last_timestamp
+        self.last_timestamp = current_timestamp
+        if delta_t <= 0 or delta_t > 0.1:  # 限制最大时间差为100ms，避免异常跳跃
+            return self.waist_pitch_pos
+
+        # 初始化delta_q
+        delta_q = 0.0
+        # 处理按钮A（正方向）
+        if raw_value>0.9 and self.waist_pitch_pos < max_position:
+            delta_q = delta_t * ((max_position - min_position) / max_velocity)
+
+        # 处理按钮B（负方向）
+        elif raw_value<-0.9 and self.waist_pitch_pos > min_position:  # 使用elif避免同时按下
+            delta_q = -delta_t * ((max_position - min_position) / max_velocity)
+        
+        # 更新pitch位置
+        if delta_q != 0:
+            self.waist_pitch_pos += delta_q
+            # 限制位置在合法范围内
+            self.waist_pitch_pos = max(min_position, max(max_position, self.waist_pitch_pos))
+        return self.waist_pitch_pos
     def _update_height_button(self,rbutton_A,rbutton_B):
         """
         Update height value
@@ -162,11 +302,11 @@ class ControlDataMapper:
             rbutton_B: Right button B raw value (0 or 1)
         """
         if rbutton_B:
-            self._height_value = 0.5
+            self.height_speed_value = 0.5
         elif rbutton_A:
-            self._height_value = -0.5
+            self.height_speed_value = -0.5
         else:
-            self._height_value = 0.0
+            self.height_speed_value = 0.0
     def _update_height(self, raw_value):
         """
         Update height value
@@ -179,14 +319,13 @@ class ControlDataMapper:
         max_range = 1.0 
         
         if abs(raw_value) < deadzone:
-            self._height_value = 0.0
+            self.height_speed_value = 0.0
         else:
             sign = 1 if raw_value > 0 else -1
             intensity = (abs(raw_value) - deadzone) / (1.0 - deadzone)
             smooth = 6*intensity**5 - 15*intensity**4 + 10*intensity**3
             height_value = sign * smooth * max_range
-            
-            self._height_value = height_value
+            self.height_speed_value = height_value
     
     def _map_forward_velocity(self, value):
         return self._smooth_map(value, -0.2, 0.2)

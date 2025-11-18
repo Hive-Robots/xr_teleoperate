@@ -22,3 +22,5 @@ __MACOSX/
 teleop/data/
 episode_0*
 .vscode/
+
+test.py
