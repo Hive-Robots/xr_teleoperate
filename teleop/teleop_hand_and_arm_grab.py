@@ -101,6 +101,7 @@ if __name__ == '__main__':
     parser.add_argument('--affinity', action = 'store_true', help = 'Enable high priority and set CPU affinity')
     parser.add_argument('--ipc', action = 'store_true', help = 'Enable IPC server to handle input; otherwise enable sshkeyboard')
     parser.add_argument('--record', action = 'store_true', help = 'Enable data recording')
+    parser.add_argument('--record-side', type=str, choices=['left', 'right', 'both'], default='both', help='Select which side(s) to record')
     parser.add_argument('--task-dir', type = str, default = './utils/data/', help = 'path to save data')
     parser.add_argument('--task-name', type = str, default = 'pick cube', help = 'task name for recording')
     parser.add_argument('--task-desc', type = str, default = 'e.g. pick the red cube on the table.', help = 'task goal for recording')
@@ -109,6 +110,22 @@ if __name__ == '__main__':
     logger_mp.info(f"args: {args}")
 
     try:
+        def filter_states_actions_by_side(states, actions, record_side):
+            if record_side == "both":
+                return states, actions
+            keep_prefix = "left" if record_side == "left" else "right"
+            filtered_states = {key: value for key, value in states.items() if key.startswith(keep_prefix)}
+            filtered_actions = {key: value for key, value in actions.items() if key.startswith(keep_prefix)}
+
+            # keep non-side specific entries such as body
+            for key, value in states.items():
+                if not key.startswith(("left_", "right_")):
+                    filtered_states[key] = value
+            for key, value in actions.items():
+                if not key.startswith(("left_", "right_")):
+                    filtered_actions[key] = value
+            return filtered_states, filtered_actions
+
         # ipc communication. client usage: see utils/ipc.py
         if args.ipc:
             ipc_server = IPC_Server(on_press=on_press, on_info=on_info, get_state=get_state)
@@ -288,12 +305,14 @@ if __name__ == '__main__':
             sport_client = LocoClient()
             sport_client.SetTimeout(0.0001)
             sport_client.Init()
-        
+
         # record + headless mode
         if args.record and args.headless:
             recorder = EpisodeWriter(task_dir = args.task_dir + args.task_name, task_goal = args.task_desc, frequency = args.frequency, rerun_log = False)
         elif args.record and not args.headless:
             recorder = EpisodeWriter(task_dir = args.task_dir + args.task_name, task_goal = args.task_desc, frequency = args.frequency, rerun_log = True)
+        if args.record:
+            logger_mp.info(f"Recording side: {args.record_side}")
 
 
         logger_mp.info("Please enter the start signal (enter 'r' to start the subsequent program)")
@@ -552,6 +571,7 @@ if __name__ == '__main__':
                             "qpos": current_body_action,
                         }, 
                     }
+                    states, actions = filter_states_actions_by_side(states, actions, args.record_side)
                     if args.sim:
                         sim_state = sim_state_subscriber.read_data()            
                         recorder.add_item(colors=colors, depths=depths, states=states, actions=actions, sim_state=sim_state)
