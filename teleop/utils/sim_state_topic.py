@@ -245,7 +245,7 @@ def start_sim_state_subscribe(shm_name: str = "sim_state_cmd_data", shm_size: in
 # if __name__ == "__main__":
 #     # example usage
 #     logger_mp.info("Starting sim state subscriber...")
-#     ChannelFactoryInitialize(0,"enx9c69d31ecd9b")
+#     ChannelFactoryInitialize(0,"enx98fc84ec937b")
 #     # create and start subscriber
 #     subscriber = start_sim_state_subscribe()
     

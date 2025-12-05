@@ -33,7 +33,8 @@ kTopicDex3RightState = "rt/dex3/right/state"
 
 class Dex3_1_Controller:
     def __init__(self, left_hand_array_in, right_hand_array_in, dual_hand_data_lock = None, dual_hand_state_array_out = None,
-                       dual_hand_action_array_out = None,fps = 100.0, Unit_Test = False,simulation_mode = False, right_hand_override = None, left_hand_override = None):
+                       dual_hand_action_array_out = None,fps = 100.0, Unit_Test = False,simulation_mode = False, right_hand_override = None, left_hand_override = None,
+                       dds_interface: str = "enx98fc84ec937b"):
         """
         [note] A *_array type parameter requires using a multiprocessing Array, because it needs to be passed to the internal child process
 
@@ -52,6 +53,8 @@ class Dex3_1_Controller:
         Unit_Test: Whether to enable unit testing
 
         simulation_mode: Whether to use simulation mode (default is False, which means using real robot)
+
+        dds_interface: Network interface name used by ChannelFactoryInitialize when not in simulation mode
         """
         logger_mp.info("Initialize Dex3_1_Controller...")
 
@@ -67,7 +70,7 @@ class Dex3_1_Controller:
         if self.simulation_mode:
             ChannelFactoryInitialize(1)
         else:
-            ChannelFactoryInitialize(0,"enx9c69d31ecd9b")
+            ChannelFactoryInitialize(0, dds_interface)
 
         # initialize handcmd publisher and handstate subscriber
         self.LeftHandCmb_publisher = ChannelPublisher(kTopicDex3LeftCommand, HandCmd_)
@@ -286,7 +289,7 @@ kTopicGripperRightState = "rt/dex1/right/state"
 
 class Dex1_1_Gripper_Controller:
     def __init__(self, left_gripper_value_in, right_gripper_value_in, dual_gripper_data_lock = None, dual_gripper_state_out = None, dual_gripper_action_out = None, 
-                       filter = True, fps = 200.0, Unit_Test = False, simulation_mode = False):
+                       filter = True, fps = 200.0, Unit_Test = False, simulation_mode = False, dds_interface: str = "enx98fc84ec937b"):
         """
         [note] A *_array type parameter requires using a multiprocessing Array, because it needs to be passed to the internal child process
 
@@ -305,6 +308,8 @@ class Dex1_1_Gripper_Controller:
         Unit_Test: Whether to enable unit testing
 
         simulation_mode: Whether to use simulation mode (default is False, which means using real robot)
+
+        dds_interface: Network interface name used by ChannelFactoryInitialize when not in simulation mode
         """
 
         logger_mp.info("Initialize Dex1_1_Gripper_Controller...")
@@ -322,7 +327,7 @@ class Dex1_1_Gripper_Controller:
         if self.simulation_mode:
             ChannelFactoryInitialize(1)
         else:
-            ChannelFactoryInitialize(0,"enx9c69d31ecd9b")
+            ChannelFactoryInitialize(0, dds_interface)
  
         # initialize handcmd publisher and handstate subscriber
         self.LeftGripperCmb_publisher = ChannelPublisher(kTopicGripperLeftCommand, MotorCmds_)
@@ -461,6 +466,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument('--xr-mode', type=str, choices=['hand', 'controller'], default='hand', help='Select XR device tracking source')
     parser.add_argument('--ee', type=str, choices=['dex1', 'dex3', 'inspire1', 'brainco'], help='Select end effector controller')
+    parser.add_argument('--dds-interface', type=str, default='enx98fc84ec937b', help='Network interface name for DDS (ignored in simulation mode)')
     args = parser.parse_args()
     logger_mp.info(f"args:{args}\n")
 
@@ -500,14 +506,16 @@ if __name__ == "__main__":
         dual_hand_data_lock = Lock()
         dual_hand_state_array = Array('d', 14, lock = False)   # [output] current left, right hand state(14) data.
         dual_hand_action_array = Array('d', 14, lock = False)  # [output] current left, right hand action(14) data.
-        hand_ctrl = Dex3_1_Controller(left_hand_pos_array, right_hand_pos_array, dual_hand_data_lock, dual_hand_state_array, dual_hand_action_array)
+        hand_ctrl = Dex3_1_Controller(left_hand_pos_array, right_hand_pos_array, dual_hand_data_lock, dual_hand_state_array, dual_hand_action_array,
+                                      dds_interface=args.dds_interface)
     elif args.ee == "dex1":
         left_gripper_value = Value('d', 0.0, lock=True)        # [input]
         right_gripper_value = Value('d', 0.0, lock=True)       # [input]
         dual_gripper_data_lock = Lock()
         dual_gripper_state_array = Array('d', 2, lock=False)   # current left, right gripper state(2) data.
         dual_gripper_action_array = Array('d', 2, lock=False)  # current left, right gripper action(2) data.
-        gripper_ctrl = Dex1_1_Gripper_Controller(left_gripper_value, right_gripper_value, dual_gripper_data_lock, dual_gripper_state_array, dual_gripper_action_array)
+        gripper_ctrl = Dex1_1_Gripper_Controller(left_gripper_value, right_gripper_value, dual_gripper_data_lock, dual_gripper_state_array, dual_gripper_action_array,
+                                                 dds_interface=args.dds_interface)
 
     user_input = input("Please enter the start signal (enter 's' to start the subsequent program):\n")
     if user_input.lower() == 's':

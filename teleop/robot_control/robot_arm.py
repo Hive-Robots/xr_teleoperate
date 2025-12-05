@@ -59,7 +59,7 @@ class DataBuffer:
             self.data = data
 
 class G1_29_ArmController:
-    def __init__(self, motion_mode = False, simulation_mode = False):
+    def __init__(self, motion_mode = False, simulation_mode = False, dds_interface: str = "enx98fc84ec937b"):
         logger_mp.info("Initialize G1_29_ArmController...")
         self.q_target = np.zeros(14)
         self.tauff_target = np.zeros(14)
@@ -84,7 +84,7 @@ class G1_29_ArmController:
         if self.simulation_mode:
             ChannelFactoryInitialize(1)
         else:
-            ChannelFactoryInitialize(0,"enx9c69d31ecd9b")
+            ChannelFactoryInitialize(0, dds_interface)
 
         if self.motion_mode:
             self.lowcmd_publisher = ChannelPublisher(kTopicLowCommand_Motion, hg_LowCmd)
@@ -345,7 +345,7 @@ class G1_29_JointIndex(IntEnum):
     kNotUsedJoint5 = 34
 
 class G1_23_ArmController:
-    def __init__(self, motion_mode = False, simulation_mode = False):
+    def __init__(self, motion_mode = False, simulation_mode = False, dds_interface: str = "enx98fc84ec937b"):
         self.simulation_mode = simulation_mode
         self.motion_mode = motion_mode
 
@@ -372,7 +372,7 @@ class G1_23_ArmController:
         if self.simulation_mode:
             ChannelFactoryInitialize(1)
         else:
-            ChannelFactoryInitialize(0,"enx9c69d31ecd9b")
+            ChannelFactoryInitialize(0, dds_interface)
         
         if self.motion_mode:
             self.lowcmd_publisher = ChannelPublisher(kTopicLowCommand_Motion, hg_LowCmd)
@@ -625,7 +625,7 @@ class G1_23_JointIndex(IntEnum):
     kNotUsedJoint5 = 34
 
 class H1_2_ArmController:
-    def __init__(self, motion_mode = False, simulation_mode = False):
+    def __init__(self, motion_mode = False, simulation_mode = False, dds_interface: str = "enx98fc84ec937b"):
         self.simulation_mode = simulation_mode
         self.motion_mode = motion_mode
         
@@ -652,7 +652,7 @@ class H1_2_ArmController:
         if self.simulation_mode:
             ChannelFactoryInitialize(1)
         else:
-            ChannelFactoryInitialize(0,"enx9c69d31ecd9b")
+            ChannelFactoryInitialize(0, dds_interface)
 
         if self.motion_mode:
             self.lowcmd_publisher = ChannelPublisher(kTopicLowCommand_Motion, hg_LowCmd)
@@ -912,7 +912,7 @@ class H1_2_JointIndex(IntEnum):
     kNotUsedJoint7 = 34
 
 class H1_ArmController:
-    def __init__(self, simulation_mode = False):
+    def __init__(self, simulation_mode = False, dds_interface: str = "enx98fc84ec937b"):
         self.simulation_mode = simulation_mode
         
         logger_mp.info("Initialize H1_ArmController...")
@@ -936,7 +936,7 @@ class H1_ArmController:
         if self.simulation_mode:
             ChannelFactoryInitialize(1)
         else:
-            ChannelFactoryInitialize(0,"enx9c69d31ecd9b")
+            ChannelFactoryInitialize(0, dds_interface)
         self.lowcmd_publisher = ChannelPublisher(kTopicLowCommand_Debug, go_LowCmd)
         self.lowcmd_publisher.Init()
         self.lowstate_subscriber = ChannelSubscriber(kTopicLowState, go_LowState)

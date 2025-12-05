@@ -94,6 +94,7 @@ if __name__ == '__main__':
     parser.add_argument('--xr-mode', type=str, choices=['hand', 'controller'], default='hand', help='Select XR device tracking source')
     parser.add_argument('--arm', type=str, choices=['G1_29', 'G1_23', 'H1_2', 'H1'], default='G1_29', help='Select arm controller')
     parser.add_argument('--ee', type=str, choices=['dex1', 'dex3', 'inspire1', 'brainco', 'fake_dex'], help='Select end effector controller')
+    parser.add_argument('--iface', type=str, default='enx98fc84ec937b', help='Network interface for DDS (ignored in simulation mode)')
     # mode flags
     parser.add_argument('--motion', action = 'store_true', help = 'Enable motion control mode')
     parser.add_argument('--headless', action='store_true', help='Enable headless mode (no display)')
@@ -204,16 +205,16 @@ if __name__ == '__main__':
         # arm
         if args.arm == "G1_29":
             arm_ik = G1_29_ArmIK()
-            arm_ctrl = G1_29_ArmController(motion_mode=args.motion, simulation_mode=args.sim)
+            arm_ctrl = G1_29_ArmController(motion_mode=args.motion, simulation_mode=args.sim, dds_interface=args.iface)
         elif args.arm == "G1_23":
             arm_ik = G1_23_ArmIK()
-            arm_ctrl = G1_23_ArmController(motion_mode=args.motion, simulation_mode=args.sim)
+            arm_ctrl = G1_23_ArmController(motion_mode=args.motion, simulation_mode=args.sim, dds_interface=args.iface)
         elif args.arm == "H1_2":
             arm_ik = H1_2_ArmIK()
-            arm_ctrl = H1_2_ArmController(motion_mode=args.motion, simulation_mode=args.sim)
+            arm_ctrl = H1_2_ArmController(motion_mode=args.motion, simulation_mode=args.sim, dds_interface=args.iface)
         elif args.arm == "H1":
             arm_ik = H1_ArmIK()
-            arm_ctrl = H1_ArmController(simulation_mode=args.sim)
+            arm_ctrl = H1_ArmController(simulation_mode=args.sim, dds_interface=args.iface)
 
         # end-effector
         if args.ee == "dex3":
@@ -228,7 +229,8 @@ if __name__ == '__main__':
             left_hand_override[0] = 0.0
             hand_ctrl = Dex3_1_Controller(left_hand_pos_array, right_hand_pos_array,
                                           dual_hand_data_lock, dual_hand_state_array, dual_hand_action_array, 
-                                          simulation_mode=args.sim, right_hand_override=right_hand_override, left_hand_override=left_hand_override)
+                                          simulation_mode=args.sim, right_hand_override=right_hand_override, left_hand_override=left_hand_override,
+                                          dds_interface=args.iface)
             
             dex3_right_pub = ChannelPublisher("rt/dex3/right/cmd", HandCmd_)
             dex3_right_pub.Init()

@@ -20,7 +20,8 @@ kTopicbraincoRightState = "rt/brainco/right/state"
 
 class Brainco_Controller:
     def __init__(self, left_hand_array, right_hand_array, dual_hand_data_lock = None, dual_hand_state_array = None,
-                       dual_hand_action_array = None, fps = 100.0, Unit_Test = False, simulation_mode = False):
+                       dual_hand_action_array = None, fps = 100.0, Unit_Test = False, simulation_mode = False,
+                       dds_interface: str = "enx98fc84ec937b"):
         logger_mp.info("Initialize Brainco_Controller...")
         self.fps = fps
         self.hand_sub_ready = False
@@ -35,7 +36,7 @@ class Brainco_Controller:
         if self.simulation_mode:
             ChannelFactoryInitialize(1)
         else:
-            ChannelFactoryInitialize(0,"enx9c69d31ecd9b")
+            ChannelFactoryInitialize(0, dds_interface)
 
         # initialize handcmd publisher and handstate subscriber
         self.LeftHandCmb_publisher = ChannelPublisher(kTopicbraincoLeftCommand, MotorCmds_)
