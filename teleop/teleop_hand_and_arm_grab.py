@@ -148,16 +148,23 @@ if __name__ == '__main__':
                 'wrist_camera_id_numbers': [2, 4],
             }
         else:
+            # HIVE-INFO: This config is for only a single camera (head)
+            # img_config = {
+            #     'fps': 30,
+            #     'head_camera_type': 'realsense',
+            #     'head_camera_image_shape': [480, 640],  # Head camera resolution
+            #     'head_camera_id_numbers': ["233622072924"],
+            # }
+            # HIVE-INFO: Use this config for extra cameras, adjust it accordingly.
             img_config = {
                 'fps': 30,
                 'head_camera_type': 'realsense',
                 'head_camera_image_shape': [480, 640],  # Head camera resolution
                 'head_camera_id_numbers': ["233622072924"],
-                #'wrist_camera_type': 'opencv',
-                #'wrist_camera_image_shape': [480, 640],  # Wrist camera resolution
-                #'wrist_camera_id_numbers': [2, 4],
+                'wrist_camera_type': 'opencv',
+                'wrist_camera_image_shape': [480, 640],  # Wrist camera resolution
+                'wrist_camera_id_numbers': [8,6],
             }
-
 
         ASPECT_RATIO_THRESHOLD = 2.0 # If the aspect ratio exceeds this value, it is considered binocular
         if len(img_config['head_camera_id_numbers']) > 1 or (img_config['head_camera_image_shape'][1] / img_config['head_camera_image_shape'][0] > ASPECT_RATIO_THRESHOLD):
@@ -453,6 +460,10 @@ if __name__ == '__main__':
                 for i, jid in enumerate(Dex3_1_Left_JointIndex):
                     dex3_left_msg.motor_cmd[jid].q = left7[i]
                 dex3_left_pub.Write(dex3_left_msg)
+
+                # keep recorded actions in sync with the commands we just sent
+                with dual_hand_data_lock:
+                    dual_hand_action_array[:] = q14
             else:
                 pass
             
