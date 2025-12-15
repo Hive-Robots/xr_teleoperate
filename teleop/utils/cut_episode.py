@@ -25,15 +25,20 @@ def save_json(p: Path, obj: dict) -> None:
         json.dump(obj, f, indent=2)
 
 
-def copy_rel_file(src_ep_dir: Path, dst_ep_dir: Path, rel_path: str) -> str:
-    """Copy a file referenced by rel_path into dst episode, preserving subfolders."""
+def copy_rel_file(src_ep_dir: Path, dst_ep_dir: Path, rel_path: str) -> None:
+    """
+    Copy a file referenced by rel_path into dst episode, preserving subfolders.
+    If missing, we skip (but keep the folder structure if it exists in rel_path).
+    """
     src = src_ep_dir / rel_path
-    if not src.exists():
-        return rel_path  # keep as-is; caller can decide whether to error
     dst = dst_ep_dir / rel_path
     dst.parent.mkdir(parents=True, exist_ok=True)
+
+    if not src.exists():
+        # Keep going; folder still exists because we created dst.parent above.
+        return
+
     shutil.copy2(src, dst)
-    return rel_path
 
 
 def main():
@@ -58,7 +63,7 @@ def main():
     j = load_json(src_json)
     frames = j.get("data", [])
     if not frames:
-        raise ValueError("No frames under 'data'.")
+        raise ValueError("No frames under 'data' in data.json.")
 
     start = max(0, args.start)
     end = min(len(frames), args.end)
@@ -67,13 +72,17 @@ def main():
 
     cut = frames[start:end]
 
-    # Copy files referenced in colors/depths/audios
+    # Create output episode folder and ALWAYS keep these subfolders
     dst_ep.mkdir(parents=True, exist_ok=True)
+    (dst_ep / "colors").mkdir(parents=True, exist_ok=True)
+    (dst_ep / "depths").mkdir(parents=True, exist_ok=True)
+    (dst_ep / "audios").mkdir(parents=True, exist_ok=True)
 
+    # Copy referenced files (but don't delete anything / don't require they exist)
     for fr in cut:
         for section in ("colors", "depths", "audios"):
             sec = fr.get(section, {}) or {}
-            for k, rel in list(sec.items()):
+            for _, rel in sec.items():
                 if not rel:
                     continue
                 # Paths in your json are usually like "colors/000000_color_0.jpg"
@@ -91,6 +100,7 @@ def main():
 
     print(f"Written cut episode: {dst_ep}")
     print(f"Frames: {len(cut)}  (from [{start}:{end}))")
+    print("Folders preserved: colors/, depths/, audios/")
 
 
 if __name__ == "__main__":
