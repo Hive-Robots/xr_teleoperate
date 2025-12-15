@@ -33,7 +33,7 @@ kTopicDex3RightState = "rt/dex3/right/state"
 
 class Dex3_1_Controller:
     def __init__(self, left_hand_array_in, right_hand_array_in, dual_hand_data_lock = None, dual_hand_state_array_out = None,
-                       dual_hand_action_array_out = None,fps = 100.0, Unit_Test = False,simulation_mode = False, right_hand_override = None, left_hand_override = None,
+                       dual_hand_action_array_out = None,fps = 50.0, Unit_Test = False,simulation_mode = False, right_hand_override = None, left_hand_override = None,
                        dds_interface: str = "enx98fc84ec937b"):
         """
         [note] A *_array type parameter requires using a multiprocessing Array, because it needs to be passed to the internal child process

@@ -2,7 +2,7 @@ import ctypes
 import os
 
 # 把你 conda 环境里的新版 libstdc++ 提前塞进进程，全局可见
-ctypes.CDLL("/opt/miniconda3/envs/xr_tele/lib/libstdc++.so.6", mode=ctypes.RTLD_GLOBAL)
+# ctypes.CDLL("/opt/miniconda3/envs/xr_tele/lib/libstdc++.so.6", mode=ctypes.RTLD_GLOBAL)
 
 
 import numpy as np
