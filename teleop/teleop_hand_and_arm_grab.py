@@ -600,7 +600,7 @@ if __name__ == '__main__':
     except KeyboardInterrupt:
         logger_mp.info("KeyboardInterrupt, exiting program...")
     finally:
-        arm_ctrl.ctrl_dual_arm_go_home()
+        #arm_ctrl.ctrl_dual_arm_go_home()
 
         if args.ipc:
             ipc_server.stop()
