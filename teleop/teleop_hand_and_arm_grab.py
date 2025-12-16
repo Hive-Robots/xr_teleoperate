@@ -374,6 +374,15 @@ if __name__ == '__main__':
         PRESS_THRESH = 0.30       # tune
         TORQUE_THRESH = 200000.0  # tune (tau_est units depend on firmware)
         SQUEEZE_OFFSET = 0.05     # small extra close when contact happens
+        
+        # --- Tare (recalibration) tracking ---
+        TARE_DELAY = 0.5  # seconds to wait after trigger release before taring
+        V_MAX = 3.0  # rad/s - max velocity for right hand grip motion
+        right_trigger_released_time = None
+        left_trigger_released_time = None
+        right_trigger_prev = False
+        left_trigger_prev = False
+        
         loop_idx = 0
         while not STOP:
             start_time = time.time()
@@ -450,6 +459,21 @@ if __name__ == '__main__':
 
             right_trigger = tele_data.tele_state.right_trigger_state
             left_trigger = tele_data.tele_state.left_trigger_state
+            
+            # --- Detect trigger release and schedule tare ---
+            current_loop_time = time.time()
+            
+            # Right hand: detect falling edge (was pressed, now released)
+            if right_trigger_prev and not right_trigger:
+                right_trigger_released_time = current_loop_time
+                logger_mp.info("[TARE] Right trigger released, will tare after delay...")
+            right_trigger_prev = right_trigger
+            
+            # Left hand: detect falling edge
+            if left_trigger_prev and not left_trigger:
+                left_trigger_released_time = current_loop_time
+                logger_mp.info("[TARE] Left trigger released, will tare after delay...")
+            left_trigger_prev = left_trigger
 
             # --- Read Dex3 state (tau_est + pressure) ---
             if args.ee == "dex3":
@@ -496,6 +520,19 @@ if __name__ == '__main__':
                 except Exception:
                     # if state not available (sim / DDS hiccup), just keep last values
                     pass
+                
+                # --- Execute tare if delay has passed ---
+                if right_trigger_released_time is not None:
+                    if (current_loop_time - right_trigger_released_time) >= TARE_DELAY:
+                        right_press_base = right_press.copy()
+                        logger_mp.info(f"[TARE] Right hand recalibrated! New baseline max: {np.max(right_press_base):.1f}")
+                        right_trigger_released_time = None
+                
+                if left_trigger_released_time is not None:
+                    if (current_loop_time - left_trigger_released_time) >= TARE_DELAY:
+                        left_press_base = left_press.copy()
+                        logger_mp.info(f"[TARE] Left hand recalibrated! New baseline max: {np.max(left_press_base):.1f}")
+                        left_trigger_released_time = None
 
                 # baseline-correct and normalize (divide by 100.0 like hand_controller.py)
                 PRESSURE_SCALE = 100.0
@@ -577,7 +614,6 @@ if __name__ == '__main__':
 
                         target = grab_pose_right
                         dt = 1.0 / args.frequency
-                        V_MAX = 1.0  # rad/s (tune this)
 
                         dq = target - cur
                         dq = np.clip(dq, -V_MAX * dt, V_MAX * dt)
@@ -624,10 +660,9 @@ if __name__ == '__main__':
 
                         target = grab_pose_left
                         dt = 1.0 / args.frequency
-                        V_MAX_L = 1.0  # rad/s (tune separately if needed)
 
                         dq = target - cur
-                        dq = np.clip(dq, -V_MAX_L * dt, V_MAX_L * dt)
+                        dq = np.clip(dq, -V_MAX * dt, V_MAX * dt)
 
                         q14[:7] = cur + dq
 
