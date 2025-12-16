@@ -360,8 +360,8 @@ if __name__ == '__main__':
         logger_mp.info("start program.")
         arm_ctrl.speed_gradual_max()
 
-        grab_pose_right = np.array([0,-1.0,-1.0,1.4,1.3,1.4,1.3])
-        grab_pose_left = np.array([0,1.0,1.0,-1.4,-1.3,-1.4,-1.3])
+        grab_pose_right = np.array([-0.0,-1.0,-1.70,1.55,1.75,1.55,1.75])  # Palmar grip
+        grab_pose_left = np.array([0.0,1.0,1.70,-1.55,-1.75,-1.55,-1.75])  # Palmar grip
         open_pose = np.array([0,0,0,0,0,0,0])
 
         # --- SmartGrip parameters ---
@@ -377,7 +377,7 @@ if __name__ == '__main__':
         
         # --- Tare (recalibration) tracking ---
         TARE_DELAY = 0.5  # seconds to wait after trigger release before taring
-        V_MAX = 3.0  # rad/s - max velocity for right hand grip motion
+        V_MAX = 5.0  # rad/s - max velocity for right hand grip motion
         right_trigger_released_time = None
         left_trigger_released_time = None
         right_trigger_prev = False
@@ -543,17 +543,17 @@ if __name__ == '__main__':
                     right_press_corr = right_press / PRESSURE_SCALE
                     left_press_corr  = left_press / PRESSURE_SCALE
 
-                # --- DEBUG: print pressure and torque after calibration ---
-                if press_base_ready:
-                    if (loop_idx % args.frequency) == 0:   # ~1 Hz print
-                        print(
-                            f"[HAND DEBUG] "
-                            f"R_press_max={float(np.max(right_press_corr)):.3f} | "
-                            f"L_press_max={float(np.max(left_press_corr)):.3f} | "
-                            f"R_tau_max={float(np.max(np.abs(right_tau))):.3f} | "
-                            f"L_tau_max={float(np.max(np.abs(left_tau))):.3f}"
-                        )
-                loop_idx += 1
+                # # --- DEBUG: print pressure and torque after calibration ---
+                # if press_base_ready:
+                #     if (loop_idx % args.frequency) == 0:   # ~1 Hz print
+                #         print(
+                #             f"[HAND DEBUG] "
+                #             f"R_press_max={float(np.max(right_press_corr)):.3f} | "
+                #             f"L_press_max={float(np.max(left_press_corr)):.3f} | "
+                #             f"R_tau_max={float(np.max(np.abs(right_tau))):.3f} | "
+                #             f"L_tau_max={float(np.max(np.abs(left_tau))):.3f}"
+                #         )
+                # loop_idx += 1
             
 
 
