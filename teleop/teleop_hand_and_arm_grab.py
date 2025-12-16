@@ -371,7 +371,7 @@ if __name__ == '__main__':
         KP_HOLD = 0.4      # soft hold like your hand_controller.py
         KD_HOLD = 0.2
 
-        PRESS_THRESH = 0.25       # tune
+        PRESS_THRESH = 0.30       # tune
         TORQUE_THRESH = 200000.0  # tune (tau_est units depend on firmware)
         SQUEEZE_OFFSET = 0.05     # small extra close when contact happens
         loop_idx = 0
@@ -497,13 +497,14 @@ if __name__ == '__main__':
                     # if state not available (sim / DDS hiccup), just keep last values
                     pass
 
-                # baseline-correct and normalize-ish (optional)
+                # baseline-correct and normalize (divide by 100.0 like hand_controller.py)
+                PRESSURE_SCALE = 100.0
                 if press_base_ready:
-                    right_press_corr = np.maximum(0.0, right_press - right_press_base)
-                    left_press_corr  = np.maximum(0.0, left_press  - left_press_base)
+                    right_press_corr = np.maximum(0.0, (right_press - right_press_base) / PRESSURE_SCALE)
+                    left_press_corr  = np.maximum(0.0, (left_press  - left_press_base)  / PRESSURE_SCALE)
                 else:
-                    right_press_corr = right_press.copy()
-                    left_press_corr  = left_press.copy()
+                    right_press_corr = right_press / PRESSURE_SCALE
+                    left_press_corr  = left_press / PRESSURE_SCALE
 
                 # --- DEBUG: print pressure and torque after calibration ---
                 if press_base_ready:
